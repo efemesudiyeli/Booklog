@@ -35,7 +35,8 @@ struct CustomProgressViewStyle: ProgressViewStyle {
                         // Start String
                         Text("\(startString)m / \(endString)m")
                             .font(.caption)
-                            .foregroundColor(.gray)
+                            .foregroundColor(.cAccent)
+                            .bold()
                             .fixedSize(horizontal: true, vertical: false)
                             .offset(y: -15) // StartString'i Circle'ın üstüne taşı
                     }

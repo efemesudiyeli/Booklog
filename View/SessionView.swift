@@ -21,35 +21,57 @@ struct SessionView: View {
     @State private var bookmarkPage: String = ""
     
     
-    func saveSessionData(notes: String, bookmarkPage: Int) {
+    func handleSessionEnd(notes: String, bookmarkPage: Int) {
         guard let book = selectedBook else { return }
         let elapsedSeconds = Int(elapsedTime)
-
+        
         // Günlük süreyi Firestore'da güncelle
         bookViewModel.updateDailyReadingTime(seconds: elapsedSeconds)
-
-        // Kitap tamamlama kontrolü ve güncellemesi
+        
         let totalPages = book.volumeInfo.pageCount ?? 0
+        let previousPage = selectedBook?.bookmarkPage ?? 0
+        let pagesRead = max(0, bookmarkPage - previousPage)
+        
+        print("Previous Page: \(previousPage), Current Page: \(bookmarkPage), Pages Read: \(pagesRead)")
+        
+        // Her durumda totalSessions ve totalPagesRead güncellenir
+        bookViewModel.updateUserStatistics(
+            bookID: book.id,
+            elapsedSeconds: elapsedSeconds,
+            pagesRead: pagesRead,
+            isBookCompleted: bookmarkPage >= totalPages
+        )
+        
         if bookmarkPage >= totalPages {
-            // Kitap tamamlandıysa kullanıcı istatistiklerini ve kitabı güncelle
-            bookViewModel.updateUserStatistics(
+            // Kitap tamamlandı
+            print("Book completed! Updating completion status.")
+            
+            // Kitap tamamlanma verilerini kaydet
+            bookViewModel.checkAndUpdateCompletionStatus(
                 bookID: book.id,
-                elapsedSeconds: elapsedSeconds,
-                pagesRead: bookmarkPage - (selectedBook?.bookmarkPage ?? 0),
-                isBookCompleted: true
+                notes: notes,
+                bookmarkPage: bookmarkPage,
+                elapsedSeconds: elapsedSeconds
             )
+            
+            // Tamamlandı olarak işaretleyin
+            selectedBook?.bookmarkPage = totalPages
+            selectedBook?.notes = notes
         } else {
-            // Kitap tamamlanmadıysa yalnızca oturum verilerini güncelle
+            // Kitap tamamlanmadı, oturum verilerini kaydedin
+            print("Book not completed, updating session data only.")
             bookViewModel.updateBookWithSessionData(
                 bookID: book.id,
                 notes: notes,
                 bookmarkPage: bookmarkPage
             )
         }
-
+        
         // Süreyi sıfırla
         elapsedTime = 0
+        selectedBook?.bookmarkPage = bookmarkPage
     }
+    
     private func startTimer() {
         if timer == nil { // Zaten çalışıyorsa yeniden başlatma
             timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
@@ -183,7 +205,7 @@ struct SessionView: View {
                         .foregroundColor(.secondary)
                     Text("\(Int(elapsedTime)) seconds")
                         .font(.system(size: 40, weight: .bold, design: .rounded))
-                        .foregroundColor(.foreground)
+                        .foregroundColor(.white)
                 }
                 
                 Button {
@@ -191,10 +213,10 @@ struct SessionView: View {
                 } label: {
                     ZStack {
                         Circle()
-                            .fill(Color.background)
+                            .fill(Color.cBackground)
                             .frame(width: 200)
                         Image(systemName: isPaused ? "play.fill" : "pause.fill")
-                            .foregroundStyle(Color.foreground)
+                            .foregroundStyle(Color.primary)
                             .font(.system(size: 46))
                             .rotationEffect(.degrees(isPaused ? 0 : 180))
                             .animation(.easeInOut(duration: 0.3), value: isPaused)
@@ -220,20 +242,27 @@ struct SessionView: View {
                     bookID: selectedBook.id,
                     bookPageCount: selectedBook.volumeInfo.pageCount ?? 500
                 ) { notes, page in
-                    saveSessionData(notes: notes, bookmarkPage: page)
+                    handleSessionEnd(notes: notes, bookmarkPage: page)
                 }
             }
         }
         
-        .onAppear {
-            bookViewModel.fetchSavedBooks()
-            
-        }
         .onDisappear {
             stopTimer()
         }
+        .onChange(of: bookViewModel.books) { updatedBooks in
+            // Seçili kitabın artık mevcut olmadığını kontrol et
+            if let currentBook = selectedBook, !updatedBooks.contains(where: { $0.id == currentBook.id }) {
+                selectedBook = nil // Seçili kitabı sıfırla
+            }
+        }
+        .onAppear {
+            bookViewModel.fetchSavedBooks()
+            
+            // İlk yüklemede seçili kitabın geçerli olup olmadığını kontrol et
+            if let currentBook = selectedBook, !bookViewModel.books.contains(where: { $0.id == currentBook.id }) {
+                selectedBook = nil
+            }
+        }
     }
 }
-
-
-

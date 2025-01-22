@@ -19,11 +19,15 @@ struct BooklogApp: App {
     
     var body: some Scene {
         WindowGroup {
-             if authViewModel.isAuthenticated {
-                 MainView(authViewModel: authViewModel, bookViewModel: bookViewModel)
-            } else {
-                SignupView(authViewModel: authViewModel)
-            }
+            
+                if authViewModel.isAuthenticated {
+                    MainView(authViewModel: authViewModel, bookViewModel: bookViewModel)
+                } else {
+                    NavigationStack {
+                        LoginView(authViewModel: authViewModel)
+                    }
+                }
+            
         }
     }
 }

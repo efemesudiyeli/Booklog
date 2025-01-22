@@ -1,37 +1,47 @@
-//
-//  CustomTextFieldStyle.swift
-//  Booklog
-//
-//  Created by Efe Mesudiyeli on 6.12.2024.
-//
 import SwiftUI
 
-/// Custom TextFieldStyle
+/// Custom TextFieldStyle with SF Symbol
 struct CustomTextFieldStyle: TextFieldStyle {
-    var backgroundColor: Color = .white
+    var backgroundColor: Color = .cDarkest
     var borderColor: Color = .gray
     var cornerRadius: CGFloat = 10
-    var paddingVertical: CGFloat = 25.0
-    var paddingHorizontal: CGFloat = 15.0
-    
-    // Bu fonksiyonu düzenleyerek metin alanı ve başlık yerleşimini değiştiriyoruz
+    var paddingVertical: CGFloat = 16
+    var iconName: String? = nil // SF Symbol adı
+
     func _body(configuration: TextField<_Label>) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-           
+        HStack() {
             
-            // TextField - Gri renkli arka plan ve alt kısımda
+            // SF Symbol
+            if let iconName = iconName {
+                Image(systemName: iconName)
+                    .padding(.leading, 14)
+                    .frame(width: 20, height: 20)
+                    .alignmentGuide(HorizontalAlignment.center) {
+                        $0[HorizontalAlignment.center]
+                    }
+                    
+            }  
+            // TextField
             configuration
-                .padding(.vertical, paddingVertical) // İç padding
-                .padding(.horizontal, paddingHorizontal) // İç padding
-                .background(Color.backgroundBright) // Gri arka plan
-                .cornerRadius(cornerRadius)
-                .overlay(
-                    UnevenRoundedRectangle(topLeadingRadius: cornerRadius, bottomLeadingRadius: cornerRadius, bottomTrailingRadius: cornerRadius)
-                        .stroke(borderColor, lineWidth: 0) // Kenarlık
-                )
-                .padding(.horizontal)
+                .padding(.vertical, paddingVertical)
+                .padding(.leading, 10)
+                .foregroundStyle(.white)
+            
+            
         }
+        .foregroundStyle(.cBackground)
+        .background(backgroundColor)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .stroke(borderColor, lineWidth: 0.5) // Çerçeve
+                .opacity(0.5)
+        )
+        .padding(.horizontal)
     }
 }
 
-
+#Preview(body: {
+    TextField("Deneme", text: .constant("email"))
+        .textFieldStyle(CustomTextFieldStyle())
+})

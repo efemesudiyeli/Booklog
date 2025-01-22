@@ -388,7 +388,7 @@ class BookViewModel: ObservableObject {
             }
         }
     }
-    func saveSessionData(bookID: String, notes: String, bookmarkPage: Int) {
+    func saveBookSessionToFirestore(bookID: String, notes: String, bookmarkPage: Int) {
         guard let userId = Auth.auth().currentUser?.uid else {
             print("User ID not found. Make sure the user is logged in.")
             return
@@ -452,21 +452,62 @@ class BookViewModel: ObservableObject {
     func updateUserStatistics(bookID: String, elapsedSeconds: Int, pagesRead: Int, isBookCompleted: Bool) {
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
-        db.collection("users").document(userId).setData([
+        // İlk olarak kitap tamamlanma durumunu kontrol et
+        if isBookCompleted {
+            let bookRef = db.collection("users").document(userId).collection("books").document(bookID)
+            
+            bookRef.getDocument { [weak self] document, error in
+                if let error = error {
+                    print("Error fetching book data: \(error.localizedDescription)")
+                    return
+                }
+                
+                let isAlreadyCompleted = document?.data()?["isCompleted"] as? Bool ?? false
+                if isAlreadyCompleted {
+                    print("Book \(bookID) is already marked as completed. Skipping statistics update.")
+                    return
+                }
+                
+                // Kitap tamamlanmış olarak işaretle
+                bookRef.setData([
+                    "isCompleted": true
+                ], merge: true)
+                
+                // Kullanıcı istatistiklerini güncelle
+                self?.incrementUserStatistics(
+                    userId: userId,
+                    elapsedSeconds: elapsedSeconds,
+                    pagesRead: pagesRead,
+                    incrementBooksCompleted: true
+                )
+            }
+        } else {
+            // Kitap tamamlanmadıysa yalnızca genel istatistikleri güncelle
+            incrementUserStatistics(
+                userId: userId,
+                elapsedSeconds: elapsedSeconds,
+                pagesRead: pagesRead,
+                incrementBooksCompleted: false
+            )
+        }
+    }
+
+    private func incrementUserStatistics(userId: String, elapsedSeconds: Int, pagesRead: Int, incrementBooksCompleted: Bool) {
+        var updates: [String: Any] = [
             "totalSessions": FieldValue.increment(1.0),
             "totalReadingTime": FieldValue.increment(Double(elapsedSeconds)),
             "totalPagesRead": FieldValue.increment(Double(pagesRead))
-        ], merge: true)
+        ]
         
-        db.collection("users").document(userId).collection("books").document(bookID).setData([
-            "sessionCount": FieldValue.increment(1.0),
-            "readingTime": FieldValue.increment(Double(elapsedSeconds)),
-            "timestamp": FieldValue.serverTimestamp()
-        ], merge: true) { error in
+        if incrementBooksCompleted {
+            updates["totalBooksCompleted"] = FieldValue.increment(1.0)
+        }
+        
+        db.collection("users").document(userId).updateData(updates) { error in
             if let error = error {
-                print("Error updating book statistics: \(error.localizedDescription)")
+                print("Error updating user statistics: \(error.localizedDescription)")
             } else {
-                print("Book statistics updated successfully.")
+                print("User statistics updated successfully.")
             }
         }
     }
@@ -501,27 +542,27 @@ class BookViewModel: ObservableObject {
     
     func checkAndUpdateCompletionStatus(bookID: String, notes: String, bookmarkPage: Int, elapsedSeconds: Int) {
         guard let userId = Auth.auth().currentUser?.uid else { return }
-        
+
         let bookRef = db.collection("users").document(userId).collection("books").document(bookID)
         bookRef.getDocument { [weak self] document, error in
             if let error = error {
                 print("Error fetching book data: \(error.localizedDescription)")
                 return
             }
-            
+
             let isCompleted = document?.data()?["isCompleted"] as? Bool ?? false
-            
             if isCompleted {
                 print("This book is already marked as completed.")
             } else {
+                // Kitabı tamamlanmış olarak işaretle ve kullanıcı istatistiklerini güncelle
                 bookRef.setData([
                     "notes": notes,
                     "bookmarkPage": bookmarkPage,
                     "isCompleted": true,
                     "timestamp": FieldValue.serverTimestamp()
                 ], merge: true)
-                
-                self?.updateUserStatistics(bookID: bookID, elapsedSeconds: elapsedSeconds, pagesRead: bookmarkPage, isBookCompleted: true)
+
+                print("Book completion status updated successfully.")
             }
         }
     }

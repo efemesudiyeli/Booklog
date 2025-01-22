@@ -13,7 +13,7 @@ struct BooksResponse: Codable {
     let items: [BookItem]
 }
 
-struct BookItem: Codable, Identifiable {
+struct BookItem: Codable, Identifiable, Equatable {
     let kind: String
     let id: String
     let etag: String
@@ -25,6 +25,11 @@ struct BookItem: Codable, Identifiable {
     let volumeInfo: VolumeInfo
     let saleInfo: SaleInfo?
     let accessInfo: AccessInfo
+    
+    // Equatable protokolü için gerekli operatör
+        static func == (lhs: BookItem, rhs: BookItem) -> Bool {
+            return lhs.id == rhs.id
+        }
 }
 
 struct VolumeInfo: Codable {

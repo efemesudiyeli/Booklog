@@ -70,7 +70,7 @@ struct SessionEndView: View {
                     Button(action: {
                         isNotesFocused = false
                         onSave?(userNotes, bookmarkPage)
-                        bookViewModel.saveSessionData(bookID: bookID, notes: userNotes, bookmarkPage: bookmarkPage)
+                        bookViewModel.saveBookSessionToFirestore(bookID: bookID, notes: userNotes, bookmarkPage: bookmarkPage)
                        
                         dismiss()
                     }) {
